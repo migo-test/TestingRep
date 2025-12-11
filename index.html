@@ -15,12 +15,12 @@
         console.log(msg);
       };
 
-      out('Sending POST to https://clerk.upstash.com/v1/client/sessions/sess_36hWcZqfYtiyZX5BBymNd9GYeno/touch');
+      out('Sending POST to https://clerk.upstash.com/v1/client/sessions/sess_36eb3pUKqmfrBpPJjnntBlfJULJ/touch');
 
       try {
         // Use a simple Content-Type to avoid preflight when possible:
         // text/plain is a "simple" header and will not trigger preflight.
-        const resp = await fetch('https://clerk.upstash.com/v1/client/sessions/sess_36hWcZqfYtiyZX5BBymNd9GYeno/touch', {
+        const resp = await fetch('https://clerk.upstash.com/v1/client/sessions/sess_36eb3pUKqmfrBpPJjnntBlfJULJ/touch', {
           method: 'POST',
           mode: 'cors',                 // allow CORS
           credentials: 'include',       // include cookies
