@@ -1,3 +1,1 @@
-<script>
-	confirm(1);
-</script>
+confirm(document.cookie);
